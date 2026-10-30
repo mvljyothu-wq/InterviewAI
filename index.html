@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>InterviewAI</title>
+  <meta name="description" content="Practise technical and HR interviews with an AI interviewer that asks about your own résumé, adapts to your answers and explains every grade." />
+
+  <!-- Inter is only used where the system font (SF Pro) is not available -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/app.css" />
+
+  <!-- External Libraries (CDN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- App Config & Scripts -->
+  <script src="config.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/resumeParser.js"></script>
+  <script src="js/nlp.js"></script>
+  <script src="js/taxonomy.js"></script>
+  <script src="js/evaluator.js"></script>
+  <script src="js/evalView.js"></script>
+  <script src="js/aiEngine.js"></script>
+  <script src="js/interview.js"></script>
+  <script src="js/scorecard.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/fx.js"></script>
+  <script src="js/certificate.js"></script>
+  <script src="app.js"></script>
+</head>
+<body>
+
+<!-- Icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m0 0-4.5 4.5M12 4l4.5 4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-speaker" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></symbol>
+    <symbol id="i-adapt" viewBox="0 0 24 24"><path d="M4 18 9 12l4 3 7-9M15 6h5v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-quote" viewBox="0 0 24 24"><path d="M4 6h16v10H9l-5 4zM8 10h8M8 13h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
+
+<!-- ═══════════════ NAVBAR ═══════════════ -->
+<nav class="navbar">
+  <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
+  <div class="navbar-inner">
+    <div class="logo" id="logo-btn" role="button" tabindex="0" aria-label="InterviewAI home">
+      <span class="logo-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>InterviewAI</span>
+    </div>
+
+    <div class="nav-links" id="nav-auth">
+      <button class="nav-link" data-page="landing">Home</button>
+      <button class="nav-link" data-page="auth">Sign in</button>
+    </div>
+
+    <div class="nav-links" id="nav-app" style="display:none">
+      <button class="nav-link" data-page="dashboard">Dashboard</button>
+      <button class="nav-link" data-page="resume-upload">New interview</button>
+      <button class="nav-link" data-page="history">History</button>
+    </div>
+
+    <div class="nav-right">
+      <button class="ai-pill" id="ai-mode-pill" title="AI settings">
+        <span class="ai-pill-dot"></span><span id="ai-mode-label">Add Gemini key</span>
+        <svg class="ico" aria-hidden="true"><use href="#i-settings"/></svg>
+      </button>
+      <div class="nav-user" id="nav-user" style="display:none">
+        <div class="avatar" id="user-avatar" title="Your profile">U</div>
+        <button class="btn btn-ghost btn-sm" id="logout-btn">Sign out</button>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════════ LOADING OVERLAY ═══════════════ -->
+<div class="loading-overlay hidden" id="loading-overlay">
+  <div class="loading-panel">
+    <div class="spinner" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <p class="loading-text" id="loading-text">Working…</p>
+  </div>
+</div>
+
+<div id="toast-container" aria-live="polite"></div>
+
+<!-- ═══════════════ AI SETTINGS MODAL ═══════════════ -->
+<div class="modal-backdrop" id="settings-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <button class="modal-close" id="settings-close" aria-label="Close">✕</button>
+    <h2 id="settings-title">AI settings</h2>
+    <p class="modal-lead">Every interview question is written live by Google Gemini from your résumé and your previous answers, and each answer is graded by Gemini together with its embedding model. A free API key is required.</p>
+
+    <label class="form-label" for="settings-key">Gemini API key</label>
+    <div class="password-wrapper">
+      <input id="settings-key" class="form-input" type="password" placeholder="Paste your Gemini API key" autocomplete="off" spellcheck="false" />
+      <button type="button" class="password-toggle" id="settings-key-toggle" aria-label="Show key">Show</button>
+    </div>
+    <p class="field-help">Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com/app/apikey</a>. It is stored only in this browser.</p>
+
+    <label class="form-label" for="settings-model">Model</label>
+    <select id="settings-model" class="form-input"></select>
+
+    <div class="settings-status" id="settings-status" role="status"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="settings-clear">Remove key</button>
+      <span style="flex:1"></span>
+      <button class="btn btn-secondary" id="settings-test">Test connection</button>
+      <button class="btn btn-primary" id="settings-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+
+  <!-- ═══════════════ LANDING ═══════════════ -->
+  <div id="page-landing" class="page landing">
+
+    <section class="hero">
+      <div class="hero-copy" data-parallax="copy">
+        <h1 class="hero-title">
+          <span class="line"><span style="--i:0">Rehearse the</span></span>
+          <span class="line"><span style="--i:1">interview you’re</span></span>
+          <span class="line"><span style="--i:2">actually going</span></span>
+          <span class="line"><span style="--i:3">to get.</span></span>
+        </h1>
+        <p class="hero-sub">Upload your résumé. The interviewer asks about your own projects, follows up on what you say, and shows you which parts of every answer held up.</p>
+        <div class="hero-ctas">
+          <button class="btn btn-primary btn-lg" id="cta-start">Start practising</button>
+          <button class="btn btn-secondary btn-lg" id="cta-how">How grading works</button>
+        </div>
+        <ul class="hero-facts">
+          <li><svg class="ico"><use href="#i-check"/></svg>Technical, HR and mixed rounds</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Type or speak your answers</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>A written reason for every grade</li>
+        </ul>
+      </div>
+
+      <!-- A replay of one question: asked, answered, graded -->
+      <div class="demo" data-parallax="window" aria-label="Replay of an interview question being asked, answered and graded">
+        <div class="demo-bar">
+          <span class="demo-bar-title">Mock interview</span>
+          <span class="demo-bar-time" id="demo-time">Question 2 of 5</span>
+        </div>
+        <div class="demo-body">
+          <div class="demo-head">
+            <div class="voice voice-sm is-idle" id="demo-orb" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+            <div>
+              <div class="demo-who">Interviewer</div>
+              <div class="demo-state" id="demo-state">Reading your résumé</div>
+            </div>
+            <span class="demo-tag" id="demo-tag">SQL and databases</span>
+          </div>
+          <p class="demo-q" id="demo-q"></p>
+          <div class="demo-a" id="demo-a"></div>
+          <div class="demo-grade" id="demo-grade">
+            <div class="demo-ring" id="demo-ring"></div>
+            <div class="ev-verdict v-partial"><span class="ev-verdict-icon">◐</span>Partially correct</div>
+            <p class="demo-summary muted" id="demo-summary"></p>
+            <ul class="demo-concepts" id="demo-concepts"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Scroll story: what happens to one answer -->
+    <section class="story" id="grading">
+      <div class="story-inner">
+        <div class="story-intro" data-reveal>
+          <h2 class="band-title">What happens to your answer.</h2>
+          <p class="band-lead">Every answer goes through the same five steps. Scroll to follow one through.</p>
+        </div>
+        <div class="story-grid">
+          <div class="story-steps">
+            <div class="story-step" data-step="0">
+              <span class="story-n">1</span>
+              <h3>A question written for you</h3>
+              <p>Gemini reads your résumé and your answers so far, then writes one question. With it comes a model answer and the key ideas a good answer should cover.</p>
+            </div>
+            <div class="story-step" data-step="1">
+              <span class="story-n">2</span>
+              <h3>You answer in your own words</h3>
+              <p>Type or speak. There is no keyword list to hit, so explain it the way you would to an interviewer.</p>
+            </div>
+            <div class="story-step" data-step="2">
+              <span class="story-n">3</span>
+              <h3>Each idea is checked for meaning</h3>
+              <p>An embedding model compares every sentence you wrote with every key idea. A correct idea in different words still counts.</p>
+            </div>
+            <div class="story-step" data-step="3">
+              <span class="story-n">4</span>
+              <h3>Gemini reads it like an interviewer</h3>
+              <p>It checks the facts, flags anything stated incorrectly, and quotes your own sentence next to the correction.</p>
+            </div>
+            <div class="story-step" data-step="4">
+              <span class="story-n">5</span>
+              <h3>Two scores become one grade</h3>
+              <p>The judge counts for 60% and the embedding model for 40%. How closely they agree sets the confidence you see.</p>
+            </div>
+          </div>
+
+          <div class="story-visual">
+            <div class="story-card" id="story-card" data-active="0">
+              <div class="sc-layer sc-q" data-layer="0">
+                <div class="sc-label">Question 3 of 5, Operating Systems</div>
+                <p class="sc-question">What is the difference between a process and a thread, and when would you use threads?</p>
+                <div class="sc-keys">
+                  <span>Separate vs shared memory</span><span>Context-switch cost</span><span>Synchronisation risk</span>
+                </div>
+              </div>
+              <div class="sc-layer sc-a" data-layer="1">
+                <p><mark data-m="ok">A process has its own address space, while threads of the same process share memory.</mark> <mark data-m="ok">Switching between threads is cheaper.</mark> <mark data-m="bad">Threads never need locks because they share memory.</mark></p>
+              </div>
+              <div class="sc-layer sc-match" data-layer="2">
+                <div class="sc-row"><span>Separate vs shared memory</span><i style="--w:.91"></i><b>91%</b></div>
+                <div class="sc-row"><span>Context-switch cost</span><i style="--w:.78"></i><b>78%</b></div>
+                <div class="sc-row"><span>Synchronisation risk</span><i style="--w:.34"></i><b>34%</b></div>
+              </div>
+              <div class="sc-layer sc-judge" data-layer="3">
+                <div class="sc-flag"><span>Stated incorrectly</span>Shared memory is exactly why threads need locks: without them, two threads can update the same data at once.</div>
+              </div>
+              <div class="sc-layer sc-final" data-layer="4">
+                <div class="sc-ring" id="story-ring"></div>
+                <div class="sc-final-text">
+                  <div class="ev-verdict v-partial"><span class="ev-verdict-icon">◐</span>Partially correct</div>
+                  <div class="sc-fuse"><span>Gemini judge <b>58</b></span><span>Embedding model <b>66</b></span><span>Agreement <b>High</b></span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" id="features-section">
+      <div class="band-inner feature-split">
+        <div class="band-head" data-reveal>
+          <h2 class="band-title">Feedback you can act on, after every answer.</h2>
+          <p class="band-lead">Two models grade each answer: Gemini reads it like an interviewer, and an embedding model checks how closely your wording matches each key idea.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature" data-reveal style="--d:0">
+            <svg class="ico ico-lg"><use href="#i-file"/></svg>
+            <h3>Questions about your résumé</h3>
+            <p>Your projects, the tech you chose and the internship you listed. The interviewer asks about them by name.</p>
+          </article>
+          <article class="feature" data-reveal style="--d:1">
+            <svg class="ico ico-lg"><use href="#i-adapt"/></svg>
+            <h3>Follow-ups and difficulty that adapt</h3>
+            <p>A vague answer gets a follow-up. A strong one makes the next question harder.</p>
+          </article>
+          <article class="feature" data-reveal style="--d:0">
+            <svg class="ico ico-lg"><use href="#i-quote"/></svg>
+            <h3>Grades with evidence</h3>
+            <p>Each key idea you covered is quoted back from your own answer. Each factual error comes with the correction.</p>
+          </article>
+          <article class="feature" data-reveal style="--d:1">
+            <svg class="ico ico-lg"><use href="#i-target"/></svg>
+            <h3>A model answer each time</h3>
+            <p>See what a strong answer sounds like, and the two or three changes that would lift yours.</p>
+          </article>
+          <article class="feature" data-reveal style="--d:0">
+            <svg class="ico ico-lg"><use href="#i-route"/></svg>
+            <h3>A study plan from your gaps</h3>
+            <p>The report turns your weakest topics into a short plan with resources for this week.</p>
+          </article>
+          <article class="feature" data-reveal style="--d:1">
+            <svg class="ico ico-lg"><use href="#i-briefcase"/></svg>
+            <h3>Roles that fit</h3>
+            <p>Role matches based on your skills and how you performed, with the skills each role still needs.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Topic rows that drift with scroll -->
+    <section class="topics" aria-label="Topics the interviewer covers">
+      <h2 class="band-title topics-title" data-reveal>From your projects to the fundamentals.</h2>
+      <div class="marquee" data-marquee>
+        <div class="marquee-track">
+          <span>Python</span><span>Data Structures and Algorithms</span><span>SQL and databases</span><span>Operating Systems</span><span>Computer Networks</span><span>Machine Learning</span><span>OOP</span><span>System Design</span><span>JavaScript</span>
+        </div>
+      </div>
+      <div class="marquee marquee-reverse" data-marquee>
+        <div class="marquee-track">
+          <span>Your project deep-dive</span><span>React</span><span>Java</span><span>C and C++</span><span>Deep Learning</span><span>Web and APIs</span><span>Git and DevOps</span><span>Behavioural</span><span>Data analysis</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="band band-alt">
+      <div class="band-inner">
+        <h2 class="band-title" data-reveal>Fifteen minutes, start to finish.</h2>
+        <ol class="steps" data-line>
+          <li data-reveal style="--d:0"><span class="step-n">1</span><h3>Upload your résumé</h3><p>PDF or DOCX. Skills, projects and experience are pulled out for you to check.</p></li>
+          <li data-reveal style="--d:1"><span class="step-n">2</span><h3>Pick the round</h3><p>Choose the role, technical, HR or mixed, and how many questions.</p></li>
+          <li data-reveal style="--d:2"><span class="step-n">3</span><h3>Answer in your own words</h3><p>Type or speak. Each answer is graded on accuracy, completeness, depth, relevance and clarity.</p></li>
+          <li data-reveal style="--d:3"><span class="step-n">4</span><h3>Read your report</h3><p>Scores by topic, every answer reviewed, and what to practise next.</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="closing">
+      <h2 class="scrub" data-scrub>Your next interview starts with this one.</h2>
+      <p data-reveal style="--d:1">Free to use with a Gemini API key. Your data stays in this browser.</p>
+      <button class="btn btn-primary btn-lg" data-reveal style="--d:2" onclick="Router.navigate(Auth.getUser() ? 'resume-upload' : 'auth')">Start practising</button>
+    </section>
+
+    <footer class="site-footer">
+      <div class="site-footer-inner">
+        <span>InterviewAI</span>
+        <span>Built by Madhavarapu Venkata Lakshmi Jyothiradithya and Dhruv Verma, VIT</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ═══════════════ AUTH ═══════════════ -->
+  <div id="page-auth" class="page auth-page">
+    <div class="auth-branding">
+      <div class="voice voice-lg is-listening" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+      <h1>Your interviewer is ready when you are.</h1>
+      <p>Sessions, scores and reports are saved in this browser so you can track how you improve.</p>
+      <ul class="auth-points">
+        <li><svg class="ico"><use href="#i-file"/></svg>Questions from your own résumé</li>
+        <li><svg class="ico"><use href="#i-adapt"/></svg>Adaptive difficulty, question by question</li>
+        <li><svg class="ico"><use href="#i-quote"/></svg>Explanations for every grade</li>
+      </ul>
+    </div>
+
+    <div class="auth-form-panel">
+      <div class="auth-form-container">
+        <div class="auth-tabs">
+          <button class="auth-tab active" data-tab="login">Sign in</button>
+          <button class="auth-tab" data-tab="register">Create account</button>
+        </div>
+
+        <div id="auth-error" class="auth-error"></div>
+
+        <form class="auth-form active" id="form-login">
+          <div>
+            <div class="auth-form-title">Welcome back</div>
+            <div class="auth-form-subtitle">Sign in to continue practising.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="login-email">Email</label>
+            <input id="login-email" class="form-input" type="email" placeholder="you@example.com" required autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="login-password">Password</label>
+            <div class="password-wrapper">
+              <input id="login-password" class="form-input" type="password" placeholder="Your password" required autocomplete="current-password" />
+              <button type="button" class="password-toggle">Show</button>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full btn-lg" id="login-submit-btn">Sign in</button>
+          <div class="auth-divider">or</div>
+          <button type="button" class="btn btn-secondary btn-full" onclick="App.loginDemo()">Try the demo account</button>
+        </form>
+
+        <form class="auth-form" id="form-register">
+          <div>
+            <div class="auth-form-title">Create your account</div>
+            <div class="auth-form-subtitle">It takes ten seconds. Everything stays in this browser.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reg-name">Full name</label>
+            <input id="reg-name" class="form-input" type="text" placeholder="Your name" required autocomplete="name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reg-email">Email</label>
+            <input id="reg-email" class="form-input" type="email" placeholder="you@example.com" required autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reg-password">Password</label>
+            <div class="password-wrapper">
+              <input id="reg-password" class="form-input" type="password" placeholder="At least 6 characters" required autocomplete="new-password" />
+              <button type="button" class="password-toggle">Show</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reg-confirm">Confirm password</label>
+            <div class="password-wrapper">
+              <input id="reg-confirm" class="form-input" type="password" placeholder="Repeat your password" required autocomplete="new-password" />
+              <button type="button" class="password-toggle">Show</button>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full btn-lg">Create account</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ DASHBOARD ═══════════════ -->
+  <div id="page-dashboard" class="page">
+    <div class="container dashboard-page">
+      <div class="dashboard-header">
+        <div class="dashboard-welcome">
+          <h1>Hello, <span id="stat-name">there</span></h1>
+          <p>Pick up where you left off, or start a new round.</p>
+        </div>
+        <button class="btn btn-primary btn-lg" id="btn-new-interview">New interview</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-icon"><svg class="ico"><use href="#i-history"/></svg></div><div class="stat-label">Interviews completed</div><div class="stat-value" id="stat-total">0</div></div>
+        <div class="stat-card"><div class="stat-icon"><svg class="ico"><use href="#i-adapt"/></svg></div><div class="stat-label">Latest score</div><div class="stat-value" id="stat-latest">–</div></div>
+        <div class="stat-card"><div class="stat-icon"><svg class="ico"><use href="#i-chart"/></svg></div><div class="stat-label">Average score</div><div class="stat-value" id="stat-average">–</div></div>
+        <div class="stat-card"><div class="stat-icon"><svg class="ico"><use href="#i-star"/></svg></div><div class="stat-label">Top skill</div><div class="stat-value stat-value-sm" id="stat-strength">–</div></div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="card">
+          <div class="card-head"><h3>Score history</h3><button class="btn btn-ghost btn-sm" onclick="Router.navigate('history')">View all</button></div>
+          <div class="chart-wrapper"><canvas id="score-history-chart" height="180"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Skill performance</h3></div>
+          <div id="skill-bars"><p class="muted">Finish an interview to see your skill breakdown.</p></div>
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="card">
+          <div class="card-head"><h3>Recent interviews</h3></div>
+          <div style="overflow-x:auto">
+            <table class="history-table">
+              <thead><tr><th>Date</th><th>Role</th><th>Round</th><th>Questions</th><th>Score</th><th></th></tr></thead>
+              <tbody id="history-tbody"><tr><td colspan="6" class="empty-cell">No interviews yet. Start your first one.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Recommended roles</h3></div>
+          <div id="recommended-jobs"><p class="muted">Finish an interview to get role recommendations.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ RESUME UPLOAD ═══════════════ -->
+  <div id="page-resume-upload" class="page">
+    <div class="container resume-page narrow">
+      <div class="section-header">
+        <div class="stepper"><span class="on">Résumé</span><span>Profile</span><span>Interview setup</span></div>
+        <h1>Upload your résumé</h1>
+        <p>Your skills, projects and experience become the material for your interview questions.</p>
+      </div>
+
+      <div id="upload-section">
+        <div class="upload-zone" id="upload-zone" tabindex="0" role="button" aria-label="Choose a résumé file">
+          <div class="upload-icon-wrapper"><svg class="ico ico-xl"><use href="#i-upload"/></svg></div>
+          <h3>Drop your résumé here</h3>
+          <p>or click to choose a file</p>
+          <div class="upload-formats"><span class="format-chip">PDF</span><span class="format-chip">DOCX</span><span class="format-chip">up to 10 MB</span></div>
+        </div>
+        <input type="file" id="file-input" accept=".pdf,.docx" hidden />
+
+        <div class="file-preview" id="file-preview">
+          <div class="file-icon pdf" id="file-icon"><svg class="ico"><use href="#i-file"/></svg></div>
+          <div class="file-info">
+            <div class="file-name" id="file-name">resume.pdf</div>
+            <div class="file-size" id="file-size">0 KB</div>
+          </div>
+          <button class="file-remove" id="file-remove" aria-label="Remove file">✕</button>
+        </div>
+
+        <div class="upload-actions">
+          <button class="btn btn-primary btn-lg" id="btn-analyze" disabled>Analyse résumé</button>
+        </div>
+
+        <div class="extract-note">
+          <h4>What gets extracted</h4>
+          <div class="extract-grid">
+            <span>Programming languages</span><span>Frameworks and tools</span>
+            <span>Projects and their tech</span><span>Experience</span>
+            <span>Education</span><span>Certifications and achievements</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="analysis-loading" style="display:none">
+        <div class="analysis-loading">
+          <div class="spinner" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <h3>Reading your résumé</h3>
+          <div class="analysis-steps">
+            <div class="analysis-step" id="step-extract"><div class="step-icon">1</div><span>Extracting text from the file</span></div>
+            <div class="analysis-step" id="step-parse"><div class="step-icon">2</div><span>Finding skills, projects and experience</span></div>
+            <div class="analysis-step" id="step-profile"><div class="step-icon">3</div><span>Building your candidate profile</span></div>
+            <div class="analysis-step" id="step-complete"><div class="step-icon">4</div><span>Ready for review</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ RESUME ANALYSIS ═══════════════ -->
+  <div id="page-resume-analysis" class="page">
+    <div class="container resume-page" style="max-width:920px">
+      <div class="section-header">
+        <div class="stepper"><span class="done">Résumé</span><span class="on">Profile</span><span>Interview setup</span></div>
+        <h1>Check your profile</h1>
+        <p>This is what the interviewer knows about you. If something important is missing, update your résumé and upload it again.</p>
+      </div>
+
+      <div class="card profile-head">
+        <div class="profile-avatar" id="profile-avatar">C</div>
+        <div style="flex:1;min-width:0">
+          <h2 id="profile-name">Candidate name</h2>
+          <p id="profile-email" class="muted">email@example.com</p>
+          <p id="profile-edu" class="profile-edu">Education</p>
+        </div>
+        <span class="badge badge-success">Profile ready</span>
+      </div>
+
+      <div class="profile-grid">
+        <div class="profile-section"><div class="profile-section-title">Languages</div><div class="skills-list" id="profile-languages"></div></div>
+        <div class="profile-section"><div class="profile-section-title">Frameworks and libraries</div><div class="skills-list" id="profile-frameworks"></div></div>
+        <div class="profile-section"><div class="profile-section-title">Tools</div><div class="skills-list" id="profile-tools"></div></div>
+        <div class="profile-section"><div class="profile-section-title">Other skills</div><div class="skills-list" id="profile-skills"></div></div>
+        <div class="profile-section" style="grid-column:1/-1"><div class="profile-section-title">Projects</div><div id="profile-projects"></div></div>
+        <div class="profile-section"><div class="profile-section-title">Experience</div><div id="profile-experience"></div></div>
+        <div class="profile-section"><div class="profile-section-title">Certifications</div><div class="skills-list" id="profile-certs"></div></div>
+      </div>
+
+      <div class="page-actions">
+        <button class="btn btn-secondary" onclick="Router.navigate('resume-upload')">Upload a different résumé</button>
+        <button class="btn btn-primary btn-lg" id="btn-proceed-setup">Set up the interview</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ INTERVIEW SETUP ═══════════════ -->
+  <div id="page-interview-setup" class="page">
+    <div class="container resume-page" style="max-width:860px">
+      <div class="section-header">
+        <div class="stepper"><span class="done">Résumé</span><span class="done">Profile</span><span class="on">Interview setup</span></div>
+        <h1>Set up your interview</h1>
+        <p>Pick the role you are preparing for and the kind of round you want to practise.</p>
+      </div>
+
+      <div class="setup-grid">
+        <fieldset class="setup-block" style="grid-column:1/-1">
+          <legend class="form-label">Role</legend>
+          <div class="option-cards role-cards">
+            <button class="option-card" data-group="role" data-value="Software Developer">Software Developer</button>
+            <button class="option-card" data-group="role" data-value="Frontend Developer">Frontend Developer</button>
+            <button class="option-card" data-group="role" data-value="Backend Developer">Backend Developer</button>
+            <button class="option-card" data-group="role" data-value="Full Stack Developer">Full Stack Developer</button>
+            <button class="option-card" data-group="role" data-value="Data Analyst">Data Analyst</button>
+            <button class="option-card" data-group="role" data-value="Data Scientist">Data Scientist</button>
+            <button class="option-card" data-group="role" data-value="ML Engineer">ML Engineer</button>
+            <button class="option-card" data-group="role" data-value="AI Engineer">AI Engineer</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="setup-block">
+          <legend class="form-label">Round</legend>
+          <div class="option-cards stack">
+            <button class="option-card rich" data-group="type" data-value="Technical Interview"><b>Technical</b><small>Concepts, your projects, problem-solving and design</small></button>
+            <button class="option-card rich" data-group="type" data-value="HR Interview"><b>HR</b><small>Behavioural questions answered with real stories</small></button>
+            <button class="option-card rich" data-group="type" data-value="Mixed Interview"><b>Mixed</b><small>Technical questions with a behavioural one every third turn</small></button>
+          </div>
+        </fieldset>
+
+        <fieldset class="setup-block">
+          <legend class="form-label">Starting difficulty</legend>
+          <div class="option-cards stack">
+            <button class="option-card rich" data-group="difficulty" data-value="Beginner"><b>Beginner</b><small>Definitions and core concepts</small></button>
+            <button class="option-card rich" data-group="difficulty" data-value="Intermediate"><b>Intermediate</b><small>Applying concepts and explaining trade-offs</small></button>
+            <button class="option-card rich" data-group="difficulty" data-value="Advanced"><b>Advanced</b><small>Design, scale and tricky scenarios</small></button>
+          </div>
+        </fieldset>
+
+        <fieldset class="setup-block" style="grid-column:1/-1">
+          <legend class="form-label">Length</legend>
+          <div class="option-cards">
+            <button class="option-card rich" data-group="count" data-value="5"><b>5 questions</b><small>about 15 minutes</small></button>
+            <button class="option-card rich" data-group="count" data-value="10"><b>10 questions</b><small>about 30 minutes</small></button>
+            <button class="option-card rich" data-group="count" data-value="15"><b>15 questions</b><small>about 45 minutes</small></button>
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="page-actions">
+        <button class="btn btn-secondary" onclick="Router.navigate('resume-analysis')">Back to profile</button>
+        <button class="btn btn-primary btn-lg" id="btn-start-interview">Start the interview</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ LIVE INTERVIEW ═══════════════ -->
+  <div id="page-interview" class="page">
+    <div class="interview-page">
+      <div class="interview-layout">
+
+        <aside class="interview-sidebar">
+          <div class="stage">
+            <div class="voice voice-lg is-idle" id="interviewer-orb" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="stage-status" id="stage-status" aria-live="polite">Getting ready…</div>
+            <div class="stage-mode" id="stage-mode"></div>
+          </div>
+
+          <div class="session-card">
+            <div class="sidebar-info-item"><span class="sidebar-info-label">Role</span><span class="sidebar-info-value" id="sidebar-role">–</span></div>
+            <div class="sidebar-info-item"><span class="sidebar-info-label">Round</span><span class="sidebar-info-value" id="sidebar-type">–</span></div>
+            <div class="sidebar-info-item"><span class="sidebar-info-label">Difficulty</span><span id="diff-badge-side"></span></div>
+            <div class="sidebar-info-item"><span class="sidebar-info-label">Questions</span><span class="sidebar-info-value" id="sidebar-total">–</span></div>
+            <div class="progress-row"><span>Progress</span><span id="progress-text">0%</span></div>
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+            <div class="question-dots" id="question-dots"></div>
+          </div>
+        </aside>
+
+        <div class="interview-main">
+          <div class="question-card" id="question-card">
+            <div class="question-meta">
+              <span class="question-number" id="question-number">Question 1 of 5</span>
+              <div class="question-meta-right">
+                <div id="diff-badge-main"></div>
+                <button class="icon-btn" id="speak-btn" title="Read the question aloud" aria-pressed="false"><svg class="ico"><use href="#i-speaker"/></svg></button>
+                <div class="timer" title="Time left for this answer">
+                  <svg viewBox="0 0 40 40" aria-hidden="true"><circle class="t-track" cx="20" cy="20" r="17"/><circle class="t-fill" id="timer-ring" cx="20" cy="20" r="17"/></svg>
+                  <span class="timer-display" id="timer-display">3:00</span>
+                </div>
+              </div>
+            </div>
+            <div class="question-topic" id="question-topic">Topic</div>
+            <p class="question-transition" id="question-transition"></p>
+            <div class="question-text" id="question-text"><span class="muted">Preparing your first question…</span></div>
+            <div class="question-hint" id="question-hint" style="display:none"><svg class="ico"><use href="#i-bulb"/></svg><span></span></div>
+          </div>
+
+          <div class="answer-card" id="answer-card">
+            <div class="answer-header">
+              <h4>Your answer</h4>
+              <button class="voice-btn" id="voice-btn"><svg class="ico"><use href="#i-mic"/></svg><span>Speak</span></button>
+            </div>
+            <textarea id="answer-input" class="form-input" placeholder="Answer as you would out loud: start with the direct answer, explain how it works, then give an example from your own work." rows="7"></textarea>
+            <div class="answer-meter" aria-hidden="true"><i id="answer-meter-fill"></i></div>
+            <div class="answer-actions">
+              <span class="char-count" id="char-count">0 words</span>
+              <div class="answer-buttons">
+                <button class="btn btn-ghost" id="btn-skip">Skip question</button>
+                <button class="btn btn-primary" id="btn-submit">Submit answer</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grading-card" id="grading-card" hidden aria-live="polite">
+            <div class="grading-head">
+              <div class="spinner" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <div>
+                <h4>Grading your answer</h4>
+                <p>This usually takes 5 to 15 seconds.</p>
+              </div>
+            </div>
+            <ol class="grading-steps">
+              <li data-stage="meaning"><span class="gs-dot"></span>Matching your sentences to the key ideas</li>
+              <li data-stage="judge"><span class="gs-dot"></span>Gemini is checking your facts and reasoning</li>
+              <li data-stage="combine"><span class="gs-dot"></span>Combining both scores into one grade</li>
+            </ol>
+          </div>
+
+          <div class="evaluation-panel" id="evaluation-panel">
+            <div class="eval-topbar">
+              <h3>How your answer was graded</h3>
+              <span class="eval-qlabel" id="eval-qlabel"></span>
+            </div>
+            <details class="ev-your-answer" id="eval-your-answer">
+              <summary>Your answer</summary>
+              <p id="eval-your-answer-text"></p>
+            </details>
+            <div id="eval-body"></div>
+            <div id="eval-diff-change" style="margin:20px 0 16px"></div>
+            <div style="text-align:right">
+              <button class="btn btn-primary" id="btn-next" style="display:none">Next question</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ SCORECARD ═══════════════ -->
+  <div id="page-scorecard" class="page">
+    <div class="container scorecard-page" style="max-width:1000px">
+      <div class="section-header">
+        <h1>Your interview report</h1>
+        <p>Scores, what went well, what to fix, and every answer reviewed.</p>
+      </div>
+
+      <div class="score-hero">
+        <div id="score-display">
+          
+        </div>
+      </div>
+
+      <div class="rc-teaser">
+        <div class="rc-thumb" aria-hidden="true"><i></i><i></i></div>
+        <div>
+          <h3>Your report card</h3>
+          <p>A two-page PDF certificate with your scores, plus résumé lines and skills drawn from your answers.</p>
+        </div>
+        <button class="btn btn-primary" id="btn-report-card">Preview and download</button>
+      </div>
+
+      <div class="charts-section">
+        <div class="chart-card"><div class="chart-card-title">Skill profile</div><canvas id="radar-chart" height="260"></canvas></div>
+        <div class="chart-card"><div class="chart-card-title">Skill breakdown</div><canvas id="bar-chart" height="260"></canvas></div>
+      </div>
+
+      <div class="card" style="margin-bottom:32px">
+        <h3 style="margin-bottom:6px">Difficulty journey</h3>
+        <p class="muted" style="margin-bottom:16px">How the difficulty changed after each answer.</p>
+        <canvas id="difficulty-chart"></canvas>
+      </div>
+
+      <div class="sw-grid">
+        <div class="sw-card">
+          <div class="sw-card-header"><div class="sw-icon strength"><svg class="ico"><use href="#i-check"/></svg></div><span>What went well</span></div>
+          <ul class="sw-list" id="strengths-list"></ul>
+        </div>
+        <div class="sw-card">
+          <div class="sw-card-header"><div class="sw-icon weakness">!</div><span>What to fix</span></div>
+          <ul class="sw-list" id="weaknesses-list"></ul>
+        </div>
+      </div>
+
+      <div class="roadmap-section">
+        <h2>Your study plan</h2>
+        <p>Built from the gaps in this interview, most urgent first.</p>
+        <div class="roadmap-phases" id="roadmap-phases"></div>
+      </div>
+
+      <div style="margin-bottom:32px">
+        <div class="section-header">
+          <h2>Roles that fit you</h2>
+          <p>Based on your résumé skills and how you performed on related questions.</p>
+        </div>
+        <div class="jobs-grid" id="jobs-grid"></div>
+      </div>
+
+      <div style="margin-bottom:32px">
+        <div class="section-header">
+          <h2>Every answer, reviewed</h2>
+          <p>Open a question to see the verdict, the evidence, and the model answer.</p>
+        </div>
+        <div class="qa-review-list" id="qa-review-list"></div>
+      </div>
+
+      <div class="share-row">
+        <button class="btn btn-secondary" id="btn-dashboard-sc">Back to dashboard</button>
+        <button class="btn btn-secondary" id="btn-report-card-2">Download report card</button>
+        <button class="btn btn-primary btn-lg" id="btn-new-interview-sc">Start a new interview</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ HISTORY ═══════════════ -->
+  <div id="page-history" class="page">
+    <div class="container" style="padding:40px 24px;max-width:900px">
+      <div class="section-header">
+        <h1>Interview history</h1>
+        <p>Open any past session to see its full report.</p>
+      </div>
+      <div id="history-list" class="history-list">
+        <div class="empty-state">
+          <h3>No interviews yet</h3>
+          <p>Your finished sessions will appear here.</p>
+          <button class="btn btn-primary" style="margin-top:20px" onclick="Router.navigate('resume-upload')">Start an interview</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Keep the profile avatar initial in sync after the dashboard renders
+  const origRender = Dashboard.render.bind(Dashboard);
+  Dashboard.render = function () {
+    origRender();
+    window.Motion?.revealIn(document.getElementById('page-dashboard'), '.dashboard-grid > .card');
+    ['stat-total', 'stat-latest', 'stat-average'].forEach(id => {
+      const el = document.getElementById(id);
+      const n = parseInt(el && el.textContent, 10);
+      if (el && !isNaN(n) && /^\d+$/.test(el.textContent.trim())) CountUp.run(el, n, { duration: 900 });
+    });
+    const user = Auth.getUser();
+    if (user) {
+      const av = document.getElementById('profile-avatar');
+      if (av) av.textContent = user.name.charAt(0).toUpperCase();
+    }
+  };
+</script>
+</body>
+</html>

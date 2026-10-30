@@ -1,0 +1,8 @@
+{
+  "name": "interviewai-offline-eval",
+  "private": true,
+  "type": "module",
+  "description": "Offline evaluation of the InterviewAI grader without the Gemini judge (MiniLM stands in for gemini-embedding-2).",
+  "scripts": { "eval": "node run.mjs && python3 metrics.py" },
+  "dependencies": { "@huggingface/transformers": "4.3.1" }
+}

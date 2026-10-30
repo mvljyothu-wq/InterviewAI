@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>InterviewAI · Grading evaluation</title>
+<style>
+  :root { --ink:#1D1E22; --mute:#6E717A; --line:#E3E5EA; --bg:#F6F7F9; --acc:#1F5BE6; --good:#1E8E5A; --bad:#C2412D; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 Inter, system-ui, -apple-system, sans-serif; color:var(--ink); background:var(--bg); }
+  main { max-width:1040px; margin:0 auto; padding:40px 20px 80px; }
+  h1 { font-size:28px; letter-spacing:-0.02em; margin:0 0 6px; }
+  h2 { font-size:18px; margin:32px 0 10px; }
+  p.lead { color:var(--mute); margin:0 0 24px; max-width:720px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:20px; margin-bottom:16px; }
+  label { display:block; font-size:13px; color:var(--mute); margin-bottom:4px; }
+  input, select { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; }
+  button { font:inherit; font-weight:600; padding:9px 18px; border-radius:999px; border:1px solid var(--ink); background:var(--ink); color:#fff; cursor:pointer; }
+  button.ghost { background:#fff; color:var(--ink); }
+  button:disabled { opacity:.4; cursor:default; }
+  .bar { height:6px; background:var(--line); border-radius:3px; overflow:hidden; margin-top:14px; }
+  .bar i { display:block; height:100%; width:0; background:var(--acc); transition:width .3s; }
+  #status { font-size:13px; color:var(--mute); margin-top:8px; min-height:20px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }
+  th { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--mute); font-weight:600; }
+  td.num { font-variant-numeric:tabular-nums; }
+  .ok { color:var(--good); } .no { color:var(--bad); }
+  .scroll { overflow-x:auto; }
+  .note { font-size:13px; color:var(--mute); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Grading evaluation</h1>
+  <p class="lead">Runs the full InterviewAI grader (Gemini judge + Gemini embedding model) on the labelled evaluation set: 12 questions × 6 answers with gold verdicts, plus 24 Indian-English rewordings for the consistency test. Results stay in this browser; download them as JSON or CSV at the end.</p>
+
+  <div class="card">
+    <div class="row">
+      <div><label for="key">Gemini API key (kept in this browser only)</label><input id="key" type="password" size="34" placeholder="Saved key is used if empty"></div>
+      <div><label for="model">Judge model</label><select id="model"></select></div>
+      <div><label for="runs">Runs</label><select id="runs"><option>1</option><option>2</option><option>3</option></select></div>
+      <div><label for="gap">Pause between answers</label><select id="gap"><option value="1000">1 s</option><option value="4000" selected>4 s</option><option value="7000">7 s (free tier)</option></select></div>
+      <button id="go">Run evaluation</button>
+      <button id="stop" class="ghost" disabled>Stop</button>
+    </div>
+    <div class="bar"><i id="prog"></i></div>
+    <div id="status">Each answer uses one embedding call and one judge call (96 answers per run).</div>
+  </div>
+
+  <div id="out" hidden>
+    <h2>Main results (72 original answers)</h2>
+    <div class="card scroll"><table id="t-main"></table><p class="note">Accuracy and macro-F1 over the four verdicts. 95% CI from 2,000 bootstrap resamples of questions. Ensemble = the production grader. Judge only = Gemini's own verdict before fusion. Embedding only = the same answers graded with the judge removed.</p></div>
+    <h2>Recall by answer type</h2>
+    <div class="card scroll"><table id="t-case"></table></div>
+    <h2>Per-class precision / recall / F1 (ensemble)</h2>
+    <div class="card scroll"><table id="t-class"></table></div>
+    <h2>Consistency</h2>
+    <div class="card scroll"><table id="t-cons"></table></div>
+    <div class="row" style="margin-top:20px"><button id="dl-json" class="ghost">Download JSON</button><button id="dl-csv" class="ghost">Download CSV</button></div>
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script src="js/nlp.js"></script>
+<script src="js/taxonomy.js"></script>
+<script src="js/evaluator.js"></script>
+<script src="js/aiEngine.js"></script>
+<script src="eval/dataset.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const D = window.EVAL_DATA;
+  const GOLD = { A: 'correct', B: 'correct', C: 'partially_correct', D: 'incorrect', E: 'incorrect', F: 'off_topic' };
+  const TYPES = { A: 'Complete', B: 'Paraphrase', C: 'Partial', D: 'Factual error', E: 'Vague', F: 'Off-topic' };
+  const L = ['correct', 'partially_correct', 'incorrect', 'off_topic'];
+  const GRADERS = { ens: 'Ensemble (judge 60% + embeddings 40%)', judge: 'Gemini judge only', ml: 'Embedding model only' };
+
+  (window.GEMINI_MODELS || []).forEach(m => { const o = document.createElement('option'); o.value = o.textContent = m.id || m; $('model').appendChild(o); });
+  if (AISettings.model) $('model').value = AISettings.model;
+
+  let rows = [], stop = false;
+
+  // Capture the judge's raw verdict before fusion
+  const fuse = AIEngine._fuse.bind(AIEngine);
+  let lastJudge = null;
+  AIEngine._fuse = (ml, g, semantic, item) => { lastJudge = { verdict: g.verdict, ml_verdict: ml.verdict, ml_score: ml.overall_score }; return fuse(ml, g, semantic, item); };
+
+  const cases = [];
+  for (const q of D.questions) {
+    for (const [k, a] of Object.entries(q.answers)) cases.push({ q, k, a, variant: false });
+    for (const [k, a] of Object.entries(q.variants)) cases.push({ q, k, a, variant: true });
+  }
+
+  $('go').onclick = async () => {
+    if ($('key').value.trim()) AISettings.apiKey = $('key').value.trim();
+    if (!AISettings.apiKey) { $('status').textContent = 'Add a Gemini API key first.'; return; }
+    AISettings.model = $('model').value;
+    const runs = +$('runs').value, gap = +$('gap').value;
+    rows = []; stop = false;
+    $('go').disabled = true; $('stop').disabled = false;
+    const total = runs * cases.length; let done = 0;
+    for (let run = 1; run <= runs && !stop; run++) {
+      for (const c of cases) {
+        if (stop) break;
+        $('status').textContent = `Run ${run}/${runs} · ${c.q.id} answer ${c.k}${c.variant ? ' (reworded)' : ''} · ${done}/${total}`;
+        const rubric = { model: c.q.model_answer, keyConcepts: c.q.key_concepts, misconceptions: c.q.misconceptions, useStar: false };
+        lastJudge = null;
+        const t0 = performance.now();
+        let r;
+        try { r = await AIEngine.evaluateAnswer({ question: c.q.question, answer: c.a, difficulty: 3, rubric, topic: c.q.topic, type: 'technical', jobRole: 'Software Engineer' }); }
+        catch (e) { r = { verdict: 'error', overall_score: null, grading: {} }; }
+        const ms = Math.round(performance.now() - t0);
+        rows.push({
+          run, q: c.q.id, topic: c.q.topic, case: c.k, type: TYPES[c.k], variant: c.variant, gold: GOLD[c.k],
+          ens: r.verdict, ens_score: r.overall_score,
+          judge: lastJudge ? lastJudge.verdict : 'unavailable', judge_score: r.grading?.judge_overall ?? null,
+          ml: lastJudge ? lastJudge.ml_verdict : r.verdict, ml_score: lastJudge ? lastJudge.ml_score : r.overall_score,
+          confidence: r.confidence_label || '', gap: r.grading?.agreement_gap ?? null,
+          llm_model: r.grading?.llm_model || '', embed_model: r.grading?.embed_model || '', ms,
+        });
+        done++; $('prog').style.width = (100 * done / total) + '%';
+        await new Promise(res => setTimeout(res, gap));
+      }
+    }
+    $('go').disabled = false; $('stop').disabled = true;
+    $('status').textContent = `Finished ${done} gradings.`;
+    render();
+  };
+  $('stop').onclick = () => { stop = true; };
+
+  // ── metrics ──
+  const prf = (y, p) => L.map(c => {
+    let tp = 0, fp = 0, fn = 0;
+    y.forEach((g, i) => { if (p[i] === c && g === c) tp++; else if (p[i] === c) fp++; else if (g === c) fn++; });
+    const pr = tp + fp ? tp / (tp + fp) : 0, rc = tp + fn ? tp / (tp + fn) : 0;
+    return { c, pr, rc, f1: pr + rc ? 2 * pr * rc / (pr + rc) : 0 };
+  });
+  const acc = (rs, g) => rs.filter(r => r[g] === r.gold).length / rs.length;
+  const mf1 = (rs, g) => prf(rs.map(r => r.gold), rs.map(r => r[g])).reduce((s, x) => s + x.f1, 0) / L.length;
+  const ci = (rs, g, fn) => {
+    const qs = [...new Set(rs.map(r => r.q))], vals = [];
+    for (let b = 0; b < 2000; b++) {
+      const pick = qs.map(() => qs[Math.floor(Math.random() * qs.length)]);
+      vals.push(fn(pick.flatMap(q => rs.filter(r => r.q === q)), g));
+    }
+    vals.sort((a, b) => a - b);
+    return [vals[49], vals[1949]];
+  };
+  const f = (x) => x == null || isNaN(x) ? '–' : x.toFixed(3);
+  const valid = (g) => rows.filter(r => !r.variant && r[g] !== 'unavailable' && r[g] !== 'error');
+
+  function render() {
+    $('out').hidden = false;
+    let h = '<tr><th>Grader</th><th>n</th><th>Accuracy</th><th>95% CI</th><th>Macro-F1</th><th>95% CI</th></tr>';
+    for (const [g, name] of Object.entries(GRADERS)) {
+      const rs = valid(g); if (!rs.length) continue;
+      const a = ci(rs, g, acc), m = ci(rs, g, mf1);
+      h += `<tr><td>${name}</td><td class="num">${rs.length}</td><td class="num">${f(acc(rs, g))}</td><td class="num">[${f(a[0])}, ${f(a[1])}]</td><td class="num">${f(mf1(rs, g))}</td><td class="num">[${f(m[0])}, ${f(m[1])}]</td></tr>`;
+    }
+    $('t-main').innerHTML = h;
+
+    h = '<tr><th>Answer type</th><th>Gold</th>' + Object.values(GRADERS).map(n => `<th>${n}</th>`).join('') + '</tr>';
+    for (const k of 'ABCDEF') {
+      h += `<tr><td>${TYPES[k]}</td><td>${GOLD[k]}</td>` + Object.keys(GRADERS).map(g => { const rs = valid(g).filter(r => r.case === k); return `<td class="num">${rs.length ? f(acc(rs, g)) : '–'}</td>`; }).join('') + '</tr>';
+    }
+    $('t-case').innerHTML = h;
+
+    const rs = valid('ens');
+    h = '<tr><th>Class</th><th>Precision</th><th>Recall</th><th>F1</th></tr>' + prf(rs.map(r => r.gold), rs.map(r => r.ens)).map(x => `<tr><td>${x.c}</td><td class="num">${f(x.pr)}</td><td class="num">${f(x.rc)}</td><td class="num">${f(x.f1)}</td></tr>`).join('');
+    $('t-class').innerHTML = h;
+
+    // Rewording flips and run-to-run agreement
+    h = '<tr><th>Grader</th><th>Verdict flips after rewording</th><th>Mean score change</th><th>Run-to-run agreement</th></tr>';
+    for (const [g, name] of Object.entries(GRADERS)) {
+      const sc = g + '_score';
+      const pairs = rows.filter(r => r.variant).map(v => [v, rows.find(o => !o.variant && o.run === v.run && o.q === v.q && o.case === v.case)]).filter(([, o]) => o);
+      const flips = pairs.filter(([v, o]) => v[g] !== o[g]).length;
+      const shift = pairs.filter(([v, o]) => v[sc] != null && o[sc] != null).map(([v, o]) => Math.abs(v[sc] - o[sc]));
+      const runs = [...new Set(rows.map(r => r.run))];
+      let agree = '–';
+      if (runs.length > 1) {
+        const base = rows.filter(r => r.run === 1);
+        const same = base.filter(b => runs.every(n => (rows.find(r => r.run === n && r.q === b.q && r.case === b.case && r.variant === b.variant) || {})[g] === b[g])).length;
+        agree = f(same / base.length);
+      }
+      h += `<tr><td>${name}</td><td class="num">${flips} / ${pairs.length}</td><td class="num">${shift.length ? (shift.reduce((a, b) => a + b, 0) / shift.length).toFixed(1) : '–'}</td><td class="num">${agree}</td></tr>`;
+    }
+    $('t-cons').innerHTML = h;
+  }
+
+  const save = (name, text, type) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); };
+  $('dl-json').onclick = () => save('interviewai_eval.json', JSON.stringify({ when: new Date().toISOString(), rows }, null, 1), 'application/json');
+  $('dl-csv').onclick = () => {
+    const keys = Object.keys(rows[0] || {});
+    save('interviewai_eval.csv', [keys.join(','), ...rows.map(r => keys.map(k => JSON.stringify(r[k] ?? '')).join(','))].join('\n'), 'text/csv');
+  };
+})();
+</script>
+</body>
+</html>
